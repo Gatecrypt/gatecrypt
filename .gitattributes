@@ -1,0 +1,3 @@
+# One line ending everywhere: a Windows checkout otherwise gets CRLF, which breaks
+# the shebang of bin/gatecrypt.js and changes the bytes the tests encrypt.
+* text=auto eol=lf

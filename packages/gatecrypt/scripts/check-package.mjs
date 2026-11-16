@@ -164,7 +164,8 @@ void [plugin, empty, version, url, text, result, project, visitor, out, error, w
        const required = (await import('node:module')).createRequire(import.meta.url)('gatecrypt/vite');
        console.log(JSON.stringify({ main: Object.keys(main).sort(), vite: typeof vite.default, required: typeof required.default, client: Object.keys(client).sort(), server: Object.keys(server).sort(), version: main.VERSION }));`,
     ],
-    { cwd: consumer },
+    // Never through a shell: on Windows it would split the script at its spaces and line ends.
+    { cwd: consumer, shell: false },
   );
   if (imported) {
     const seen = JSON.parse(imported);
