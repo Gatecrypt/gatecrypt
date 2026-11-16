@@ -1,5 +1,7 @@
 # Gatecrypt
 
+[![CI](https://github.com/Gatecrypt/gatecrypt/actions/workflows/ci.yml/badge.svg)](https://github.com/Gatecrypt/gatecrypt/actions/workflows/ci.yml)
+
 Put a static site behind a sign-in, on any host that only serves files.
 
 The site's build is encrypted. What you deploy is ciphertext and a small

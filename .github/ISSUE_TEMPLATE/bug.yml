@@ -1,0 +1,40 @@
+name: Something is not working
+description: A build that fails, a site that does not open, or the package doing something other than its README says.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got. Include the exact message from the build or the sign-in page.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      description: The output of `npx gatecrypt --version`.
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: How the site is built
+      description: The Vite plugin or the CLI, and with which framework and version.
+      placeholder: CLI, after `astro build` (Astro 6)
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: Where the site is served
+      placeholder: GitHub Pages, at a custom domain
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: If the trouble is on the site and not in the build.
+      placeholder: Safari 26 on iOS
+  - type: markdown
+    attributes:
+      value: Please leave out deploy tokens, and anything from a protected site that should stay private.

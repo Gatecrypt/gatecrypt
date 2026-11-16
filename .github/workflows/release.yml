@@ -18,9 +18,11 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -34,5 +36,9 @@ jobs:
       - run: pnpm --filter gatecrypt run check:package --release
       - run: pnpm --filter @gatecrypt/browser-tests exec playwright install --with-deps chromium
       - run: pnpm test:browser
-      - run: pnpm publish --no-git-checks
+      # Packed by pnpm, published by npm: trusted publishing is npm's own feature, and
+      # needs npm 11.5.1 or newer. The tarball is the one check:package just examined.
+      - run: npm install --global npm@^11.5.1
+      - run: pnpm pack --pack-destination "$RUNNER_TEMP/pack"
         working-directory: packages/gatecrypt
+      - run: npm publish "$RUNNER_TEMP"/pack/gatecrypt-*.tgz --access public --provenance

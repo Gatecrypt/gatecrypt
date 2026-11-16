@@ -7,7 +7,11 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+  # Actions are pinned to a commit; the comment after each one names the version.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    groups:
+      actions:
+        patterns: ['*']

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a vulnerability
+    url: https://github.com/Gatecrypt/gatecrypt/security/advisories/new
+    about: Privately, please. Anything that lets someone past a sign-in is not for a public issue.
+  - name: Setting up a site
+    url: https://github.com/Gatecrypt/gatecrypt/blob/main/packages/gatecrypt/README.md#when-something-is-wrong
+    about: What the sign-in page and the build say when something is wrong, and the fix for each.
