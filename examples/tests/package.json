@@ -1,0 +1,16 @@
+{
+  "name": "@gatecrypt/example-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Proves the examples: every API refuses what it should, and every framework's site signs in and is known to its API",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "gatecrypt-repo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.0.8",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build": "pnpm --filter gatecrypt run build",
+    "dev": "pnpm build && node dev/dev.mjs",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm build && pnpm --filter gatecrypt run test",
+    "test:browser": "pnpm build && pnpm --filter @gatecrypt/browser-tests run test",
+    "test:examples": "pnpm build && pnpm --filter @gatecrypt/example-tests run test",
+    "check:package": "pnpm build && pnpm --filter gatecrypt run check:package"
+  }
+}

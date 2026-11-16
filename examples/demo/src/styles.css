@@ -1,0 +1,35 @@
+:root {
+  color-scheme: light dark;
+  font: 16px/1.5 system-ui, sans-serif;
+}
+body {
+  margin: 0;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid #8884;
+}
+nav {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+}
+nav a.active {
+  font-weight: 700;
+}
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+/* The marker lives in CSS too, so the tests cover stylesheets. */
+main::after {
+  content: 'GATECRYPT_DEMO_MARKER (stylesheet)';
+  display: block;
+  margin-top: 3rem;
+  font-size: 0.75rem;
+  opacity: 0.5;
+}

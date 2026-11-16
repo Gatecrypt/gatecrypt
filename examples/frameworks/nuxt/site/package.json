@@ -1,0 +1,19 @@
+{
+  "name": "@gatecrypt/example-nuxt-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Nuxt site generated as static files, protected by Gatecrypt, that calls an API which knows who the visitor is",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt generate && gatecrypt encrypt .output/public --no-spa-fallback"
+  },
+  "dependencies": {
+    "nuxt": "^4.6.4",
+    "vue": "^3.5.45",
+    "vue-router": "^5.5.1"
+  },
+  "devDependencies": {
+    "gatecrypt": "workspace:*"
+  }
+}

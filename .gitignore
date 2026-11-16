@@ -1,0 +1,22 @@
+node_modules/
+dist/
+dist-*/
+test-results/
+test-results-*/
+playwright-report/
+*.tsbuildinfo
+.env
+.env.*
+
+# What the framework examples build
+examples/frameworks/**/.next/
+examples/frameworks/**/out/
+examples/frameworks/**/build/
+examples/frameworks/**/.output/
+examples/frameworks/**/.nuxt/
+examples/frameworks/**/.svelte-kit/
+examples/frameworks/**/.astro/
+examples/frameworks/**/.react-router/
+examples/frameworks/**/next-env.d.ts
+# nuxt generate leaves a link to its output
+examples/frameworks/**/dist

@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (Node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: [22, 24, 26]
+        include:
+          - { os: windows-latest, node: 24 }
+          - { os: macos-latest, node: 24 }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm --filter gatecrypt run test
+      - run: pnpm --filter gatecrypt run check:package
+
+  browsers:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @gatecrypt/browser-tests exec playwright install --with-deps chromium firefox webkit
+      - run: pnpm test:browser
+        env:
+          BROWSERS: chromium,firefox,webkit
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: e2e/test-results
+          retention-days: 7
+
+  examples:
+    name: Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      # The Python example runs with uv, which fetches its one dependency.
+      - uses: astral-sh/setup-uv@v6
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @gatecrypt/example-tests exec playwright install --with-deps chromium
+      - run: pnpm test:examples
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: example-traces
+          path: examples/tests/test-results
+          retention-days: 7

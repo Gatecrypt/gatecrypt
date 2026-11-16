@@ -1,0 +1,91 @@
+{
+  "name": "gatecrypt",
+  "version": "0.1.0",
+  "description": "Put a static site behind a sign-in on any host that only serves files (GitHub Pages, S3, ...). Encrypts the build; visitors sign in with Google or an emailed code, and your API gets a signed token that says who they are.",
+  "keywords": [
+    "static-site",
+    "authentication",
+    "sign-in",
+    "password-protect",
+    "encryption",
+    "github-pages",
+    "vite-plugin",
+    "service-worker",
+    "access-control",
+    "jwt"
+  ],
+  "homepage": "https://gatecrypt.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gatecrypt/gatecrypt.git",
+    "directory": "packages/gatecrypt"
+  },
+  "bugs": "https://github.com/Gatecrypt/gatecrypt/issues",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "gatecrypt": "./bin/gatecrypt.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "default": "./dist/vite.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "node build.mjs && tsc -p tsconfig.build.json",
+    "prepack": "pnpm run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.sw.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run",
+    "check:package": "node scripts/check-package.mjs"
+  },
+  "dependencies": {
+    "mrmime": "^2.0.1"
+  },
+  "peerDependencies": {
+    "vite": ">=5"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "publint": "^0.3.25",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vite5": "npm:vite@^5.4.21",
+    "vite6": "npm:vite@^6.4.6",
+    "vite7": "npm:vite@^7.3.8",
+    "vitest": "^5.1.0"
+  }
+}

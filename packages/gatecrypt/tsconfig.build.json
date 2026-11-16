@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "emitDeclarationOnly": true, "outDir": "dist" },
+  "include": [],
+  "files": ["src/index.ts", "src/vite.ts", "src/client.ts", "src/server.ts"]
+}

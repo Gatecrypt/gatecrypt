@@ -1,0 +1,38 @@
+name: Release
+
+# Push a tag v<version> to publish packages/gatecrypt to npm.
+# Publishing uses npm trusted publishing (OIDC): no token is stored here. The
+# package's settings on npmjs.com must name this repository and this workflow.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - name: The tag is the version in package.json
+        run: test "v$(node -p "require('./packages/gatecrypt/package.json').version")" = "$GITHUB_REF_NAME"
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm --filter gatecrypt run test
+      - run: pnpm --filter gatecrypt run check:package --release
+      - run: pnpm --filter @gatecrypt/browser-tests exec playwright install --with-deps chromium
+      - run: pnpm test:browser
+      - run: pnpm publish --no-git-checks
+        working-directory: packages/gatecrypt

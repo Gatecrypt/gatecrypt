@@ -1,0 +1,16 @@
+{
+  "name": "@gatecrypt/browser-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser tests of the sign-in page and service worker: the demo site, encrypted, against the mock service",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

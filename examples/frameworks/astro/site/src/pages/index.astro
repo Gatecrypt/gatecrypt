@@ -1,0 +1,24 @@
+---
+import Page from '../layouts/Page.astro';
+
+// Where this site's API is (../api). Read when the site is built.
+const api = process.env.EXAMPLE_API_URL ?? 'http://localhost:4321';
+---
+
+<Page title="Astro example">
+  <h1>Astro example</h1>
+  <p data-testid="secret">Internal only: GATECRYPT_EXAMPLE_MARKER (Astro)</p>
+  <p>The API says you are <strong data-testid="api-email" data-api={api}>…</strong></p>
+</Page>
+
+<script>
+  // An ordinary fetch. The build named this address as the site's API (GATECRYPT_API, or --api),
+  // so Gatecrypt's service worker adds the visitor's token and the API knows who is asking.
+  const out = document.querySelector<HTMLElement>('[data-testid="api-email"]')!;
+  fetch(`${out.dataset.api}/api/me`)
+    .then(async (res) => {
+      const body = await res.json();
+      out.textContent = res.ok ? body.email : `refused (${res.status} ${body.error})`;
+    })
+    .catch((error) => (out.textContent = `failed (${error})`));
+</script>

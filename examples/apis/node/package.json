@@ -1,0 +1,13 @@
+{
+  "name": "@gatecrypt/example-api-node",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A plain Node HTTP API that knows who the visitor is, using gatecrypt/server",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "gatecrypt": "workspace:*"
+  }
+}
