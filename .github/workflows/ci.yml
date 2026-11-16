@@ -70,7 +70,7 @@ jobs:
           node-version: 24
           cache: pnpm
       # The Python example runs with uv, which fetches its one dependency.
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @gatecrypt/example-tests exec playwright install --with-deps chromium
       - run: pnpm test:examples
