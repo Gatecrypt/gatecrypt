@@ -52,7 +52,7 @@ jobs:
       - run: pnpm test:browser
         env:
           BROWSERS: chromium,firefox,webkit
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-traces
@@ -74,7 +74,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @gatecrypt/example-tests exec playwright install --with-deps chromium
       - run: pnpm test:examples
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: example-traces
