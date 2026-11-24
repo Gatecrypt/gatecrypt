@@ -10,7 +10,7 @@
     "start": "react-router-serve ./build/server/index.js"
   },
   "dependencies": {
-    "@react-router/node": "^8.5.1",
+    "@react-router/node": "^8.5.2",
     "@react-router/serve": "^8.5.1",
     "gatecrypt": "workspace:*",
     "isbot": "^5.2.3",
