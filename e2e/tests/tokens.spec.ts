@@ -9,7 +9,7 @@ const tokensGiven = async (): Promise<number> => (await mock()).tokens;
 
 /** Token and sign-in lifetimes are the mock's to set: put them back whatever a test did. */
 test.afterEach(async () => {
-  await mock({ tokenTtl: 600, grantTtl: 30 * 86400, tokensDown: false, tokensIncluded: true, allow: ['alice@example.com', 'example.org'] });
+  await mock({ tokenTtl: 600, grantTtl: 30 * 86400, tokensDown: false, tokensIncluded: true, staySignedInDays: 30, allow: ['alice@example.com', 'example.org'] });
 });
 
 test("the site's API is told who the visitor is, with nothing in the site's code but a fetch", async ({ page, context }) => {
@@ -188,7 +188,8 @@ test('a service that is down fails the request, and does not sign the visitor ou
 });
 
 test('a project whose visitors get no tokens still opens; its API calls just carry none', async ({ page }) => {
-  await mock({ tokensIncluded: false });
+  // Nor do they stay signed in across builds, so there is no grant at all.
+  await mock({ tokensIncluded: false, staySignedInDays: 0 });
   const email = allowedEmail('plain');
   await page.goto(SITE);
   await signInWithCode(page, email);

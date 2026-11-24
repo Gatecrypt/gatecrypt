@@ -10,10 +10,15 @@
  * Which ways of signing in are offered, what the page says and how it looks
  * are set in the dashboard and fetched when the page opens, so they change
  * without rebuilding the site.
+ *
+ * After a new deploy the browser holds the key of the build before. If its
+ * sign-in still stands, the loader asks for the new build's key with it and
+ * the visitor never sees this page (see renew()).
  */
 import {
   API,
   DEVICE_KEY,
+  DEVICE_SIGNATURE,
   MANIFEST_NAME,
   MESSAGE_TYPE,
   SW_NAME,
@@ -23,10 +28,11 @@ import {
   importKey,
   indexAad,
   parseManifest,
+  renewInput,
   type PublicManifest,
   type ResultMessage,
 } from './format.js';
-import { clearKey, getKey, putKey } from './idb.js';
+import { clearKey, getKey, getToken, putKey, type KeyRecord } from './idb.js';
 import { fill, mergeText } from './text.js';
 
 const script = document.currentScript as HTMLScriptElement;
@@ -119,16 +125,67 @@ async function boot(): Promise<void> {
   }
   const stored = await getKey(scope).catch(() => undefined);
   if (stored && stored.keyId === manifest.keyId) return start();
-  // A key for another build (the site was redeployed): drop it and sign in again.
-  if (stored) await clearKey(scope).catch(() => undefined);
+  // A key for another build: the site was redeployed.
+  if (stored) return renew(stored);
   await openSignIn();
+}
+
+const forget = (): Promise<unknown> => clearKey(scope).catch(() => undefined);
+
+/** Refusals of a renewal worth telling the visitor about. Any other means only "sign in again". */
+const TOLD = ['not_authorized', 'origin_not_registered', 'visitor_limit'];
+
+/**
+ * Asks for the key of the build the host serves now with the sign-in this
+ * browser made for an earlier one, without the visitor doing anything: the
+ * grant it was given then, and a proof by this browser's own signing key. The
+ * service decides as for a sign-in, now, and also whether the project still
+ * lets that sign-in carry over. If it does not, it is the sign-in screen.
+ */
+async function renew(stored: KeyRecord): Promise<void> {
+  const { grant, signKey, service } = stored;
+  if (!grant || !signKey || service !== manifest.service || stored.projectId !== manifest.projectId) {
+    await forget();
+    return openSignIn();
+  }
+  show('renewing', text.unlocking);
+  let answer: Record<string, any> | undefined;
+  try {
+    const kept = await getToken(scope).catch(() => undefined);
+    let challenge = kept?.grant === grant ? kept.challenge : undefined;
+    // At most twice: with the challenge kept from the last token, if any, then with the one the service sets.
+    for (let round = 0; round < 2 && !answer; round++) {
+      const proof = challenge
+        ? b64urlEncode(new Uint8Array(await crypto.subtle.sign(DEVICE_SIGNATURE, signKey, renewInput(grant, challenge, manifest.keyId))))
+        : undefined;
+      const res = await fetch(`${manifest.service}${API}/visitor/renew`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project: manifest.projectId, keyId: manifest.keyId, grant, challenge, proof }),
+        signal: AbortSignal.timeout(10000),
+      });
+      const body = (await res.json()) as Record<string, any>;
+      if (res.ok && body.ok && !body.key && typeof body.challenge === 'string') challenge = body.challenge;
+      else if (res.ok ? body.ok : body.ok === false && res.status < 500) answer = body;
+      else throw 0;
+    }
+    if (!answer) throw 0;
+  } catch {
+    // No clear answer (offline, or the service is down). The sign-in is kept for next time.
+    return openSignIn();
+  }
+  if (answer.ok) return accept(answer, stored);
+  // Signing in would not help either: the site needs a new build.
+  if (answer.error === 'key_unavailable') return show('error', text.keyUnavailable);
+  await forget();
+  await openSignIn(TOLD.includes(answer.error) ? answer.error : undefined);
 }
 
 /**
  * Asks the service what this project's sign-in page offers and how it should
- * look, applies that, and shows the sign-in screen.
+ * look, applies that, and shows the sign-in screen, or why the visitor is on it.
  */
-async function openSignIn(): Promise<void> {
+async function openSignIn(reason?: string): Promise<void> {
   let look: Record<string, unknown>;
   try {
     const res = await fetch(`${manifest.service}${API}/projects/${encodeURIComponent(manifest.projectId)}/sign-in`, {
@@ -166,7 +223,8 @@ async function openSignIn(): Promise<void> {
     image.src = logo;
     image.hidden = false;
   }
-  signedOut();
+  if (reason) refused(reason);
+  else signedOut();
 }
 
 // ------------------------------------------------------------------- Google
@@ -279,12 +337,17 @@ function refused(error?: string): void {
   );
 }
 
-/** What a successful sign-in is answered with: the key, who it is for, and the grant that tokens are asked with. */
-async function accept(answer: { keyId?: unknown; key?: unknown; email?: unknown; grant?: unknown }): Promise<void> {
+/**
+ * What a successful sign-in is answered with: the key, who it is for, and the
+ * grant that tokens are asked with. Or, for a renewal, the key, kept with the
+ * sign-in it was renewed from.
+ */
+async function accept(answer: { keyId?: unknown; key?: unknown; email?: unknown; grant?: unknown }, renewed?: KeyRecord): Promise<void> {
   show('starting', text.unlocking);
   const { keyId, email: address, grant } = answer;
   try {
-    // A deliberate sign-in is not a reload loop: start the count afresh.
+    // A new key is not a reload loop: start the count afresh. (A renewal cannot loop either: once
+    // the key is stored, the next load finds it matches and does not renew again.)
     sessionStorage.removeItem(RELOADS);
     if (keyId !== manifest.keyId) throw 0;
     const key = await importKey(b64urlDecode(answer.key as string), ['decrypt']);
@@ -292,13 +355,18 @@ async function accept(answer: { keyId?: unknown; key?: unknown; email?: unknown;
     const res = await fetch(new URL(manifest.index, base));
     if (!res.ok) throw 0;
     await decryptBlob(key, await res.arrayBuffer(), indexAad(keyId));
-    await putKey(scope, {
-      keyId,
-      projectId: manifest.projectId,
-      key,
-      ...(typeof address === 'string' && address ? { email: address } : {}),
-      ...(typeof grant === 'string' && grant ? { service: manifest.service, grant, signKey } : {}),
-    });
+    await putKey(
+      scope,
+      renewed
+        ? { ...renewed, keyId, key }
+        : {
+            keyId,
+            projectId: manifest.projectId,
+            key,
+            ...(typeof address === 'string' && address ? { email: address } : {}),
+            ...(typeof grant === 'string' && grant ? { service: manifest.service, grant, signKey } : {}),
+          },
+    );
   } catch {
     return show('error', text.wrongKey, text.reload, () => location.reload());
   }

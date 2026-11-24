@@ -10,11 +10,15 @@ export const SUBPATH_SITE = 'http://localhost:4375/handbook/';
 /** Two plain HTML pages encrypted with the CLI, in German, without the single-page-app fallback. */
 export const CLI_SITE = 'http://localhost:4376/';
 
+/** The demo once more, on its own origin, rebuilt by the tests of staying signed in across builds. */
+export const RENEW_SITE = 'http://localhost:4378/';
+
 /** The demo's own API (examples/apis/node), which checks visitor tokens. */
 export const DEMO_API = 'http://localhost:4377';
 
 export const OUT_DIR = 'dist-e2e';
 export const SUBPATH_OUT_DIR = 'dist-e2e-sub';
+export const RENEW_OUT_DIR = 'dist-e2e-renew';
 
 export const PROJECT = { id: 'demo', deployToken: 'gcd_mock' };
 export const MARKER = 'GATECRYPT_DEMO_MARKER';

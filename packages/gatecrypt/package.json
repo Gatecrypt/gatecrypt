@@ -1,6 +1,6 @@
 {
   "name": "gatecrypt",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Put a static site behind a sign-in on any host that only serves files (GitHub Pages, S3, ...). Encrypts the build; visitors sign in with Google or an emailed code, and your API gets a signed token that says who they are.",
   "keywords": [
     "static-site",

@@ -8,6 +8,8 @@ import {
   importKey,
   indexAad,
   parseManifest,
+  proofInput,
+  renewInput,
 } from '../src/format.js';
 
 const rawKey = () => crypto.getRandomValues(new Uint8Array(32));
@@ -125,5 +127,13 @@ describe('parseManifest', () => {
     { ...good, index: 'gatecrypt/../../x.bin' },
   ])('rejects %j', (bad) => {
     expect(() => parseManifest(bad)).toThrow('invalid manifest');
+  });
+});
+
+describe('what a browser signs', () => {
+  it('for a token and for a newer build, as PROTOCOL.md writes them, never the same text', () => {
+    expect(text(proofInput('G', 'C').buffer)).toBe('gatecrypt/v1/token\nG\nC');
+    expect(text(renewInput('G', 'C', 'K').buffer)).toBe('gatecrypt/v1/renew\nG\nC\nK');
+    expect(text(renewInput('G', 'C', 'K').buffer)).not.toBe(text(renewInput('G', 'C', 'L').buffer));
   });
 });

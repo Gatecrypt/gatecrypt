@@ -1,7 +1,8 @@
 /**
  * A visitor without a browser, for testing an API that checks visitor tokens:
  * signs in to a Gatecrypt service the way the sign-in page does (PROTOCOL.md),
- * with an emailed code, and asks for tokens the way a signed-in site does.
+ * with an emailed code, and asks for tokens the way a signed-in site does,
+ * and for a newer build's key the way the sign-in page does after a deploy.
  *
  *   const visitor = await signIn({ serviceUrl, projectId, keyId, origin, email, readCode });
  *   const { token } = await visitor.token();
@@ -68,6 +69,18 @@ export async function signIn({ serviceUrl, projectId, keyId, origin, email, read
   const { grant, key } = answer.body;
 
   let challenge;
+  /** Signs the service's challenge, asking again for one when it has none for us. */
+  const ask = async (path, body, text) => {
+    for (let round = 0; round < 2; round++) {
+      const proof = challenge
+        ? Buffer.from(await subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, pair.privateKey, Buffer.from(text(challenge)))).toString('base64url')
+        : undefined;
+      const res = await post(serviceUrl, path, origin, { ...body, grant, challenge, proof });
+      challenge = res.body.challenge;
+      if (!res.body.ok || res.body.token || res.body.key) return res.body;
+    }
+    throw new Error('the service kept asking for another proof');
+  };
   return {
     email: answer.body.email,
     /** The site's decryption key, base64url. */
@@ -78,17 +91,15 @@ export async function signIn({ serviceUrl, projectId, keyId, origin, email, read
      * refusal `{ ok: false, error }`.
      */
     async token() {
-      for (let round = 0; round < 2; round++) {
-        const proof = challenge
-          ? Buffer.from(
-              await subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, pair.privateKey, Buffer.from(`gatecrypt/v1/token\n${grant}\n${challenge}`)),
-            ).toString('base64url')
-          : undefined;
-        const res = await post(serviceUrl, '/v1/visitor/token', origin, { grant, challenge, proof });
-        challenge = res.body.challenge;
-        if (res.body.token || !res.body.ok) return res.body;
-      }
-      throw new Error('the service kept asking for another proof');
+      return ask('/v1/visitor/token', {}, (c) => `gatecrypt/v1/token\n${grant}\n${c}`);
+    },
+    /**
+     * Asks for the key of another build of the project without signing in
+     * again, as the sign-in page does after a new deploy. Resolves to
+     * `{ ok: true, keyId, key, email }`, or to the service's refusal.
+     */
+    async renew(newKeyId) {
+      return ask('/v1/visitor/renew', { project: projectId, keyId: newKeyId }, (c) => `gatecrypt/v1/renew\n${grant}\n${c}\n${newKeyId}`);
     },
   };
 }

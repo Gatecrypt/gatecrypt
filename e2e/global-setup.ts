@@ -7,7 +7,21 @@ import { promisify } from 'node:util';
 import { DEMO_DIR, buildDemo, startDemoApi } from '../dev/dev.mjs';
 import { startMockService } from '../dev/mock-service.mjs';
 import { serveStatic } from '../dev/static-server.mjs';
-import { CLI_MARKER, CLI_SITE, DEMO_API, GERMAN, OUT_DIR, PROJECT, SERVICE, SITE, SUBPATH_OUT_DIR, SUBPATH_SITE, UNREGISTERED_SITE } from './env.ts';
+import {
+  CLI_MARKER,
+  CLI_SITE,
+  DEMO_API,
+  GERMAN,
+  OUT_DIR,
+  PROJECT,
+  RENEW_OUT_DIR,
+  RENEW_SITE,
+  SERVICE,
+  SITE,
+  SUBPATH_OUT_DIR,
+  SUBPATH_SITE,
+  UNREGISTERED_SITE,
+} from './env.ts';
 
 const CLI = fileURLToPath(new URL('../packages/gatecrypt/dist/cli.js', import.meta.url));
 const port = (url: string): number => Number(new URL(url).port);
@@ -26,7 +40,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       port: port(SERVICE),
       projectId: PROJECT.id,
       deployToken: PROJECT.deployToken,
-      origins: [SITE, SUBPATH_SITE, CLI_SITE].map((url) => new URL(url).origin),
+      origins: [SITE, SUBPATH_SITE, CLI_SITE, RENEW_SITE].map((url) => new URL(url).origin),
     });
     closers.push(service.close);
 
@@ -36,6 +50,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     const build = { serviceUrl: SERVICE, projectId: PROJECT.id, deployToken: PROJECT.deployToken, demoApiUrl: DEMO_API };
     await buildDemo({ ...build, outDir: OUT_DIR });
     await buildDemo({ ...build, outDir: SUBPATH_OUT_DIR, base: new URL(SUBPATH_SITE).pathname });
+    await buildDemo({ ...build, outDir: RENEW_OUT_DIR });
 
     const work = await mkdtemp(path.join(tmpdir(), 'gatecrypt-e2e-'));
     closers.push(() => rm(work, { recursive: true, force: true }));
@@ -59,6 +74,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     await host(path.join(DEMO_DIR, OUT_DIR), SITE);
     await host(path.join(DEMO_DIR, OUT_DIR), UNREGISTERED_SITE);
     await host(path.join(DEMO_DIR, SUBPATH_OUT_DIR), SUBPATH_SITE);
+    await host(path.join(DEMO_DIR, RENEW_OUT_DIR), RENEW_SITE);
     await host(plain, CLI_SITE);
   } catch (error) {
     await close();

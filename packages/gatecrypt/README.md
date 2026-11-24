@@ -166,6 +166,21 @@ the project's **Access** tab, and set the heading, message and a logo under
 is opened; you do not need to rebuild your site. The page carries a small
 "Powered by Gatecrypt" link in its corner.
 
+### Staying signed in after a deploy
+
+Every build has its own key, so a visitor's browser holds the key of the build
+they signed in to. After you deploy a new build, the sign-in page asks the
+service for the new build's key with that sign-in, and the visitor goes
+straight in without seeing it. The service decides as it would for a sign-in:
+the address must still be on the access list, and the visit counts toward
+your plan.
+
+This lasts 30 days from the visitor's last real sign-in, however often you
+deploy. Change it, or turn it off, under the project's **Access** tab
+("Stay signed in after a deploy"); the change applies to every browser at
+once. A sign-in also stops carrying over if you turn off the way it was made
+(Google or emailed code), and when the visitor signs out.
+
 ### Translating the sign-in page
 
 `lang` sets the page's language and `text` replaces any of its sentences. What
@@ -366,7 +381,14 @@ Read this before relying on it.
 - **Removing someone does not take back a key they already have.** Removal
   blocks every future sign-in. A browser that already opened the current build
   keeps access to it until you build and deploy again. To cut someone off:
-  remove them, then redeploy.
+  remove them, then redeploy. (Staying signed in after a deploy does not get
+  around this: the access list is checked again for the new build.)
+- **Staying signed in means proving an address less often.** For up to 30
+  days (your choice), a browser that signed in gets into new builds without
+  the visitor proving their address again. If that browser falls into someone
+  else's hands, so does access to your new builds for that long, unless you
+  take the address off the access list. Shorten it or turn it off under
+  **Access** if that matters more than fewer sign-ins.
 - **One key per build, shared by everyone.** All allowed visitors receive the
   same key. Anyone who has it can decrypt that build's files, which are public
   on your host.

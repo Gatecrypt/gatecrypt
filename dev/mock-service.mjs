@@ -8,6 +8,8 @@
  *     GET /__mock.
  *   - Tokens are real: signed with a key made when the mock starts, and
  *     checked like the real ones against GET /v1/jwks.json.
+ *   - A sign-in carries over to new builds for `staySignedInDays`, like the
+ *     real service's setting of the same name (thirty days unless changed).
  *
  * Never run it anywhere that matters. It gives the key to anyone who types an
  * allowed address.
@@ -42,6 +44,7 @@ const page = (title, body) =>
  *   onCode?: (code: { email: string, code: string }) => void,
  *   tokenTtl?: number,
  *   grantTtl?: number,
+ *   staySignedInDays?: number,
  * }} [options]
  *   `origins` are the site addresses that may sign in. `allow` lists exact
  *   addresses and whole domains ("example.org"). `tokenTtl` and `grantTtl` are
@@ -61,6 +64,12 @@ export async function startMockService(options = {}) {
     tokensIncluded: true,
     tokenTtl: options.tokenTtl ?? 600,
     grantTtl: options.grantTtl ?? 30 * 86400,
+    // How many days after a sign-in a new build's key is given without another. 0: never.
+    staySignedInDays: options.staySignedInDays ?? 30,
+    // For tests: seconds instead of days, so that a test can watch it run out.
+    staySignedInSeconds: null,
+    // For tests: renewal requests are answered with an error, as if the service were down.
+    renewDown: false,
   };
   /** keyId -> { key, version } */
   const keys = new Map();
@@ -68,12 +77,13 @@ export async function startMockService(options = {}) {
   const flows = new Map();
   /** Every code "sent", newest last. */
   const codes = [];
-  /** grant -> { email, origin, pub, signedInAt, expires } */
+  /** grant -> { email, origin, pub, method, signedInAt, expires } */
   const grants = new Map();
   /** challenge -> { grant, expires } */
   const challenges = new Map();
-  /** How many tokens have been given out. */
+  /** How many tokens have been given out, and how many keys without a sign-in. */
   let tokens = 0;
+  let renewals = 0;
 
   // The key tokens are signed with, and its public half as the service publishes it.
   const signing = await subtle.generateKey(EC, true, ['sign', 'verify']);
@@ -103,16 +113,32 @@ export async function startMockService(options = {}) {
   const allowed = (email) => project.allow.includes(email) || project.allow.includes(email.split('@')[1]);
   const info = () => ({ name: project.name, origins: project.origins });
 
-  /** The one place a key is handed out. With it goes a grant: what this browser asks for tokens with. */
-  const release = (keyId, origin, email, pub) => {
+  /**
+   * The one place a key is handed out. With it goes a grant: what this browser asks for tokens
+   * with, and for newer builds' keys. A renewal keeps the grant it came with.
+   */
+  const release = (keyId, origin, email, pub, method, renewal = false) => {
     if (!project.origins.includes(origin)) return { ok: false, error: 'origin_not_registered' };
     if (!allowed(email)) return { ok: false, error: 'not_authorized' };
     const stored = keys.get(keyId);
     if (!stored) return { ok: false, error: 'key_unavailable' };
-    if (!project.tokensIncluded) return { ok: true, keyId, key: stored.key, email };
+    if (renewal || (!project.tokensIncluded && !(project.staySignedInDays > 0))) return { ok: true, keyId, key: stored.key, email };
     const grant = randomBytes(32).toString('base64url');
-    grants.set(grant, { email, origin, pub, signedInAt: now(), expires: now() + project.grantTtl });
+    grants.set(grant, { email, origin, pub, method, signedInAt: now(), expires: now() + project.grantTtl });
     return { ok: true, keyId, key: stored.key, email, grant };
+  };
+
+  /** Whether a sign-in still carries over to new builds. */
+  const staysSignedIn = (grant) => {
+    const seconds = project.staySignedInSeconds ?? project.staySignedInDays * 86400;
+    return seconds > 0 && now() < grant.signedInAt + seconds && project.methods.includes(grant.method);
+  };
+
+  /** A challenge of ours for this grant that can still be answered, with a proof that this browser signed it, or null. */
+  const proven = async (input, grant, text) => {
+    const challenge = challenges.get(input.challenge);
+    if (!challenge || challenge.grant !== input.grant || challenge.expires <= now() || typeof input.proof !== 'string') return null;
+    return subtle.verify(SIGNATURE, grant.pub, Buffer.from(input.proof, 'base64url'), Buffer.from(text)).catch(() => false);
   };
 
   const routes = async (req, url, send) => {
@@ -131,8 +157,13 @@ export async function startMockService(options = {}) {
 
     // -- for tests: read what was "sent", change the project
     if (pathname === '/__mock') {
-      if (req.method === 'POST') Object.assign(project, await body());
-      return send(200, { project, codes, keys: [...keys.keys()], tokens });
+      if (req.method === 'POST') {
+        // `dropKeys`: forget these builds' keys, as the service does with old ones.
+        const { dropKeys, ...changes } = await body();
+        for (const keyId of Array.isArray(dropKeys) ? dropKeys : []) keys.delete(keyId);
+        Object.assign(project, changes);
+      }
+      return send(200, { project, codes, keys: [...keys.keys()], tokens, renewals });
     }
 
     // -- for tests: a token with any claims at all, signed with the service's key
@@ -206,7 +237,7 @@ export async function startMockService(options = {}) {
           ),
         );
       }
-      const decision = release(request.keyId, request.origin, email, pub);
+      const decision = release(request.keyId, request.origin, email, pub, 'google');
       const message = { type: MESSAGE_TYPE, req: request.req, ...decision };
       return send(
         decision.ok ? 200 : 403,
@@ -219,7 +250,7 @@ export async function startMockService(options = {}) {
     }
 
     // -- emailed code, and tokens: calls from the site's own page
-    if (pathname === '/v1/visitor/email' || pathname === '/v1/visitor/email/verify' || pathname === '/v1/visitor/token') {
+    if (['/v1/visitor/email', '/v1/visitor/email/verify', '/v1/visitor/token', '/v1/visitor/renew'].includes(pathname)) {
       const cors = {
         'access-control-allow-origin': origin,
         'access-control-allow-methods': 'POST',
@@ -237,13 +268,8 @@ export async function startMockService(options = {}) {
         // A grant is good on the site it was given to, until it runs out.
         if (!grant || grant.origin !== origin || grant.expires <= now()) return send(401, { ok: false, error: 'expired' }, cors);
         // No challenge, or one that is not ours to answer any more: here is one.
-        const challenge = challenges.get(input.challenge);
-        if (!challenge || challenge.grant !== input.grant || challenge.expires <= now() || typeof input.proof !== 'string') {
-          return send(200, { ok: true, challenge: newChallenge(input.grant) }, cors);
-        }
-        const proved = await subtle
-          .verify(SIGNATURE, grant.pub, Buffer.from(input.proof, 'base64url'), Buffer.from(`gatecrypt/v1/token\n${input.grant}\n${input.challenge}`))
-          .catch(() => false);
+        const proved = await proven(input, grant, `gatecrypt/v1/token\n${input.grant}\n${input.challenge}`);
+        if (proved === null) return send(200, { ok: true, challenge: newChallenge(input.grant) }, cors);
         if (!proved) return send(400, { ok: false, error: 'invalid_proof' }, cors);
         // The lists as they are now, not as they were at sign-in.
         if (!project.origins.includes(origin)) return send(403, { ok: false, error: 'origin_not_registered' }, cors);
@@ -262,6 +288,23 @@ export async function startMockService(options = {}) {
           exp: now() + project.tokenTtl,
         });
         return send(200, { ok: true, token, expiresIn: project.tokenTtl, challenge: newChallenge(input.grant) }, cors);
+      }
+
+      if (pathname === '/v1/visitor/renew') {
+        if (project.renewDown) return send(503, { error: 'server_error' }, cors);
+        if (typeof input.keyId !== 'string' || !KEY_ID.test(input.keyId)) return send(400, { ok: false, error: 'invalid_request' }, cors);
+        const grant = grants.get(input.grant);
+        if (!grant || grant.origin !== origin || grant.expires <= now() || input.project !== project.id) {
+          return send(401, { ok: false, error: 'expired' }, cors);
+        }
+        // The proof names the build: one made for a token, or for another build, is no proof.
+        const proved = await proven(input, grant, `gatecrypt/v1/renew\n${input.grant}\n${input.challenge}\n${input.keyId}`);
+        if (proved === null) return send(200, { ok: true, challenge: newChallenge(input.grant) }, cors);
+        if (!proved) return send(400, { ok: false, error: 'invalid_proof' }, cors);
+        if (!staysSignedIn(grant)) return send(401, { ok: false, error: 'expired' }, cors);
+        const decision = release(input.keyId, origin, grant.email, grant.pub, grant.method, true);
+        if (decision.ok) renewals++;
+        return send(decision.ok ? 200 : decision.error === 'key_unavailable' ? 400 : 403, decision, cors);
       }
 
       if (pathname === '/v1/visitor/email') {
@@ -292,7 +335,7 @@ export async function startMockService(options = {}) {
         return send(400, { ok: false, error: 'too_many_tries' }, cors);
       }
       flows.delete(input.flow);
-      const decision = release(flow.keyId, origin, flow.email, flow.pub);
+      const decision = release(flow.keyId, origin, flow.email, flow.pub, 'email');
       return send(decision.ok ? 200 : decision.error === 'key_unavailable' ? 400 : 403, decision, cors);
     }
 

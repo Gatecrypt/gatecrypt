@@ -266,7 +266,8 @@ test('a site encrypted with the CLI: translated sign-in page, plain pages, no si
 });
 
 // Last: it replaces the build the other tests use.
-test('a new build has a new key, so everyone signs in again', async ({ page }) => {
+test('a new build has a new key: with staying signed in off, everyone signs in again', async ({ page }) => {
+  await mock({ staySignedInDays: 0 });
   await page.goto(SITE);
   await signInWithCode(page, allowedEmail('before'));
   await expectApp(page);
@@ -282,4 +283,5 @@ test('a new build has a new key, so everyone signs in again', async ({ page }) =
   await signInWithCode(page, allowedEmail('after'));
   await expectApp(page);
   expect(await storedKey(page)).toMatchObject({ keyId: after.keyId });
+  await mock({ staySignedInDays: 30 });
 });

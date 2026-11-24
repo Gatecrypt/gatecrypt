@@ -101,9 +101,9 @@ Before it offers sign-in, the loader makes an ECDSA P-256 key pair whose
 private half cannot be exported. Every sign-in request carries the public half
 as `pub`: the 65-byte uncompressed point, base64url. A successful sign-in is
 answered with a `grant`, an opaque string tied to that key, which the browser
-later shows to be given tokens (see "Tokens"). The service leaves `grant` out
-when the project's visitors do not get tokens; the sign-in is complete without
-it.
+later shows to be given tokens (see "Tokens") and the keys of newer builds
+(see "After a new deploy"). The service leaves `grant` out when the project's
+visitors get neither; the sign-in is complete without it.
 
 ### `GET SERVICE/v1/visitor/google?project=&keyId=&origin=&req=&pub=`
 
@@ -158,6 +158,35 @@ A first request sends only `grant` and is answered with a challenge. The
 access list is read at every request, so a token is never given to someone
 who has been removed.
 
+### `POST SERVICE/v1/visitor/renew`
+
+After a new deploy, the key the browser holds is for the build before. This
+asks for the key of the build in the manifest without signing in again.
+Called from the site's page, without cookies, from the origin that signed in.
+Body `{ "project", "keyId", "grant", "challenge", "proof" }`, where `keyId` is
+the build asked for and `proof` is the signature, as for a token, of
+
+```
+gatecrypt/v1/renew\n<grant>\n<challenge>\n<keyId>
+```
+
+so a proof is good for one build, and is never a token's proof. A challenge
+from a token answer may be used; a first request without one is answered
+with one.
+
+| Answer | |
+| --- | --- |
+| `200 { "ok": true, "keyId", "key", "email" }` | The build's key, as a sign-in answers it. The browser keeps the grant it has |
+| `200 { "ok": true, "challenge" }` | Sign this one and ask again |
+| `401 { "ok": false, "error": "expired" }` | The grant is not valid, not for this origin or project, or the project does not (any more) let this sign-in carry over: sign in again |
+| `403 { "ok": false, "error": "not_authorized" \| "origin_not_registered" \| "visitor_limit" }` | As for a sign-in |
+| `400 { "ok": false, "error": "key_unavailable" \| "invalid_proof" \| "invalid_request" }` | |
+
+A sign-in carries over for as many days after it was made as the project
+allows (30 unless its owner changes it, and never past its grant), and only
+while the way it was made is still offered. Everything else is decided as for
+a sign-in, at the time of the request.
+
 ### Errors
 
 `error` in a message or an answer is one of:
@@ -189,6 +218,19 @@ the service worker and reloads. The service worker answers same-origin `GET`s un
 scope by fetching the blob, decrypting it and responding with the stored
 content type. On every navigation it re-reads the manifest and the stored key;
 when they no longer match (a new build, or signed out) it serves the loader.
+
+## After a new deploy
+
+The loader finds a stored key whose `keyId` is not the manifest's. If the
+entry holds a grant and signing key from the same `service` and `projectId`,
+it asks `/v1/visitor/renew` for the new build's key. On success it checks and
+stores that key as above, beside the same `email`, `grant` and `signKey`, and
+the visitor does not see the sign-in screen. When the service refuses, the
+entry is deleted and the sign-in screen is shown (with the reason, for
+`not_authorized`, `origin_not_registered` and `visitor_limit`). On
+`key_unavailable` the entry is kept and the page says the site needs a new
+build. When there is no clear answer (offline, or the service is down), the
+entry is kept and the sign-in screen is shown.
 
 ## Tokens
 

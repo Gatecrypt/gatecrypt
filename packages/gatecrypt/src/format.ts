@@ -69,6 +69,14 @@ const encoder = new TextEncoder();
 export const proofInput = (grant: string, challenge: string): Uint8Array<ArrayBuffer> =>
   encoder.encode(`gatecrypt/v1/token\n${grant}\n${challenge}`);
 
+/**
+ * What a browser signs to be given the key of a newer build without signing in
+ * again: the grant, the service's challenge, and that build's keyId, so the
+ * proof is good for that build only. Never the same text as a token's proof.
+ */
+export const renewInput = (grant: string, challenge: string, keyId: string): Uint8Array<ArrayBuffer> =>
+  encoder.encode(`gatecrypt/v1/renew\n${grant}\n${challenge}\n${keyId}`);
+
 export const fileAad = (keyId: string, path: string): Uint8Array<ArrayBuffer> =>
   encoder.encode(`gatecrypt/v1/file\n${keyId}\n${path}`);
 

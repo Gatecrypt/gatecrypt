@@ -16,11 +16,19 @@ interface MockState {
     tokensIncluded?: boolean;
     /** Token requests are answered with an error, as if the service were down. */
     tokensDown?: boolean;
+    /** Days a sign-in carries over to new builds (0: never), or, for tests, seconds instead. */
+    staySignedInDays?: number;
+    staySignedInSeconds?: number | null;
+    /** Requests for a newer build's key are answered with an error, as if the service were down. */
+    renewDown?: boolean;
+    /** Not kept: the keys of these builds are forgotten. */
+    dropKeys?: string[];
   };
   codes: { email: string; code: string }[];
   keys: string[];
-  /** How many tokens the service has given out. */
+  /** How many tokens the service has given out, and how many keys without a sign-in. */
   tokens: number;
+  renewals: number;
 }
 
 /** Reads the mock service's state, or changes its project when given a patch. */
