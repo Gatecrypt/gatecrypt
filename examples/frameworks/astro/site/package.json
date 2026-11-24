@@ -9,7 +9,7 @@
     "build": "astro build && gatecrypt encrypt dist --no-spa-fallback"
   },
   "dependencies": {
-    "astro": "^7.4.12"
+    "astro": "^7.4.13"
   },
   "devDependencies": {
     "gatecrypt": "workspace:*"
